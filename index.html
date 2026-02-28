@@ -3,33 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Me Debes un Beso - Animación de Corazón</title>
+    <title>Me Debes un Beso</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #010101; /* Fondo oscuro similar al de Finterdev */
-            font-family: 'Times New Roman', Times, serif; /* Estilo romántico/escrito */
+            /* Fondo con degradado sutil */
+            background: radial-gradient(circle at center, #0a1128 0%, #010105 100%);
+            font-family: 'Dancing Script', cursive;
         }
         canvas {
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 1; /* Coloca las partículas detrás del texto */
+            z-index: 1;
         }
         #text-container {
             position: absolute;
-            top: 15%; /* Posicion similar a la del video */
+            top: 15%;
             width: 100%;
-            text-align: center;
-            z-index: 2; /* Coloca el texto delante de las partículas */
-            pointer-events: none; /* Deja pasar los clics */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+            pointer-events: none;
         }
         #text {
-            color: #4df; /* Color azul neón */
-            font-size: 3rem;
-            text-shadow: 0 0 10px #4df, 0 0 20px #4df, 0 0 30px #4df, 0 0 40px #4df; /* Efecto de brillo */
+            color: #4dffff;
+            font-size: 4rem; /* Tamaño más grande */
+            text-align: center;
+            padding: 0 20px;
+            /* Animación de latido/brillo para el texto */
+            animation: glowPulse 2s infinite alternate;
+        }
+
+        @keyframes glowPulse {
+            0% {
+                text-shadow: 0 0 10px #4dffff, 0 0 20px #4dffff;
+                transform: scale(1);
+            }
+            100% {
+                text-shadow: 0 0 20px #4dffff, 0 0 30px #4dffff, 0 0 40px #00aaff;
+                transform: scale(1.05);
+            }
         }
     </style>
 </head>
@@ -52,123 +71,139 @@
         });
 
         const particlesArray = [];
+        const starsArray = [];
         const heartPoints = [];
-        const numParticles = 3000; // Aumentar para un corazón más denso
-        const textHeightOffset = canvas.height * 0.2; // Ajustar a la posición del texto
+        const numParticles = 3000; 
+        const numStars = 150; // Cantidad de estrellas de fondo
 
-        // Color de partículas basado en el video
-        const particleColor = 'rgba(77, 221, 255, 0.8)'; // Azul neón brillante
+        const particleColor = 'rgba(77, 221, 255, 0.8)';
         const particleGlow = 'rgba(77, 221, 255, 1)';
 
-        // 1. Definición del Punto (adaptado del video en image_0.png)
-        var Point = (function () {
-            function Point(x, y) {
-                this.x = (typeof x !== 'undefined') ? x : 0;
-                this.y = (typeof y !== 'undefined') ? y : 0;
+        // Definición de Punto
+        class Point {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
             }
-            Point.prototype.clone = function () {
-                return new Point(this.x, this.y);
-            };
-            return Point;
-        })();
-
-        // 2. Generación de Puntos para el Corazón
-        function getHeartPoint(t) {
-            // Ecuaciones paramétricas para un corazón
-            // x = 16 * sin^3(t)
-            // y = 13 * cos(t) - 5 * cos(2t) - 2 * cos(3t) - cos(4t)
-            let x = 16 * Math.pow(Math.sin(t), 3);
-            let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-            
-            // Escalado y centrado
-            return new Point(x * 15, -y * 15);
         }
 
-        // Generar puntos para el contorno del corazón
+        // Generar puntos del corazón
+        function getHeartPoint(t) {
+            let x = 16 * Math.pow(Math.sin(t), 3);
+            let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+            return new Point(x * 12, -y * 12); // Tamaño ajustado
+        }
+
         for (let t = 0; t < Math.PI * 2; t += 0.01) {
             heartPoints.push(getHeartPoint(t));
         }
 
-        // 3. Clase Partícula
+        // Partículas del corazón
         class Particle {
             constructor() {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
                 this.size = Math.random() * 2 + 1;
-                this.speedX = Math.random() * 3 - 1.5;
-                this.speedY = Math.random() * 3 - 1.5;
-                this.color = particleColor;
-                this.glowColor = particleGlow;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.baseTarget = heartPoints[Math.floor(Math.random() * heartPoints.length)];
+                this.opacity = 0;
+            }
+
+            update(timeScale) {
+                // Calcular el centro de la pantalla
+                let centerX = canvas.width / 2;
+                let centerY = canvas.height / 2 + 60; // Desplazado un poco abajo del texto
+
+                // Efecto de latido (modifica la escala de los puntos del corazón usando seno)
+                let beat = 1 + Math.sin(timeScale) * 0.08; 
+
+                // Posición objetivo con el latido aplicado
+                let targetX = (this.baseTarget.x * beat) + centerX;
+                let targetY = (this.baseTarget.y * beat) + centerY;
+
+                // Movimiento hacia el objetivo
+                let dx = targetX - this.x;
+                let dy = targetY - this.y;
                 
-                // El objetivo es un punto aleatorio del contorno del corazón
-                this.target = heartPoints[Math.floor(Math.random() * heartPoints.length)];
-                this.velocityX = (this.target.x + canvas.width / 2 - this.x) / 50;
-                this.velocityY = (this.target.y + canvas.height / 2 + textHeightOffset - this.y) / 50;
-                this.opacity = 0; // Empieza invisible
-                this.fadeInSpeed = 0.02;
+                this.x += dx * 0.05;
+                this.y += dy * 0.05;
+
+                // Movimiento aleatorio cuando están en su lugar
+                if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+                    this.x += (Math.random() - 0.5) * 1.5;
+                    this.y += (Math.random() - 0.5) * 1.5;
+                }
+
+                if (this.opacity < 1) this.opacity += 0.01;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(77, 221, 255, ${this.opacity})`;
+                ctx.shadowBlur = this.size * 3;
+                ctx.shadowColor = particleGlow;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Estrellas de fondo (Cositas extra)
+        class Star {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 1.5;
+                this.speedY = Math.random() * 0.5 + 0.1;
+                this.opacity = Math.random();
             }
 
             update() {
-                // Movimiento inicial de puntos aleatorios a los del corazón
-                this.x += this.velocityX;
-                this.y += this.velocityY;
-
-                // Física simple de partículas: frenado con el tiempo
-                this.velocityX *= 0.98;
-                this.velocityY *= 0.98;
-
-                // Al llegar cerca del objetivo, añadir vagabundeo sutil y desvanecimiento
-                if (Math.abs(this.velocityX) < 0.1 && Math.abs(this.velocityY) < 0.1) {
-                    this.x += this.speedX;
-                    this.y += this.speedY;
-                    
-                    // Aplicar fuerzas sutiles para que vaguen cerca del corazón
-                    this.x += (Math.random() - 0.5) * 0.5;
-                    this.y += (Math.random() - 0.5) * 0.5;
-
-                    // Desvanecimiento lento
-                    this.opacity -= 0.005;
-                } else if (this.opacity < 1) {
-                    // Desvanecimiento inicial
-                    this.opacity += this.fadeInSpeed;
-                }
-
-                if (this.opacity < 0) {
-                    this.opacity = 0;
+                this.y -= this.speedY; // Suben lentamente
+                if (this.y < 0) {
+                    this.y = canvas.height;
+                    this.x = Math.random() * canvas.width;
                 }
             }
 
             draw() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color.replace('0.8', this.opacity.toFixed(2));
-                
-                // Establecer efecto de brillo para cada partícula
-                ctx.shadowBlur = this.size * 5;
-                ctx.shadowColor = this.glowColor;
-                
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
                 ctx.fill();
-                
-                // Resetear sombra para rendimiento
-                ctx.shadowBlur = 0;
             }
         }
 
-        // 4. Inicialización
         function init() {
             particlesArray.length = 0;
+            starsArray.length = 0;
             for (let i = 0; i < numParticles; i++) {
                 particlesArray.push(new Particle());
             }
+            for (let i = 0; i < numStars; i++) {
+                starsArray.push(new Star());
+            }
         }
 
-        // 5. Bucle de Animación
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Tiempo para el latido
+            let timeScale = Date.now() / 300; 
+
+            // Dibujar estrellas de fondo
+            for (let i = 0; i < starsArray.length; i++) {
+                starsArray[i].update();
+                starsArray[i].draw();
+            }
+
+            // Dibujar partículas del corazón
             for (let i = 0; i < particlesArray.length; i++) {
-                particlesArray[i].update();
+                particlesArray[i].update(timeScale);
                 particlesArray[i].draw();
             }
+
             requestAnimationFrame(animate);
         }
 
